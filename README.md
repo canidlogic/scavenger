@@ -2,6 +2,16 @@
 
 Scavenger is a minimalist binary archive format that can handle up to 256 TiB of binary data with less than 32 bytes of fixed overhead and only 12 bytes of overhead per binary object.
 
+## Codecs
+
+This project provides codecs for the Scavenger format in the following languages:
+
+- Perl (read/write)
+- C (read/write)
+- JavaScript (read-only)
+
+See the documentation in the specific subdirectories for further information.
+
 ## Binary format
 
 A Scavenger binary file has the following format:
