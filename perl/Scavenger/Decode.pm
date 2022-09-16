@@ -46,6 +46,11 @@ The module is designed to allow for Scavenger files of up to the maximum
 length to be manipulated, including cases where there are huge numbers
 of binary objects.  Memory requirements are minimal.
 
+If you are reading a Scavenger file of length 2 GiB or more, your Perl
+must be compiled with large file support.  64-bit integer support is
+I<not> actually required, since Perl can use double-precision floating
+point to represent Scavenger's 48-bit integers.
+
 =head1 CONSTRUCTOR
 
 =over 4
@@ -62,12 +67,6 @@ with fatal errors occurring if this can not be completed successfully.
 A read-only file handle will be kept open to the file while the object
 is active.  Undefined behavior occurs if the underlying file is modified
 after construction while the decoder object is still in use.
-
-If the Scavenger file is 2GB or more, you will probably get some kind of
-error or bad behavior unless Perl has been compiled with large file
-support.  You also have some risk of bad behavior unless Perl is
-compiled with 64-bit integers, though it still might work with large
-files in this case.
 
 =cut
 
@@ -124,7 +123,7 @@ characters, or a string of exactly six US-ASCII characters in the range
 =item B<count()>
 
 Return the total number of binary objects stored within this Scavenger
-file.  The return value is a C<Math::BigInt>.
+file.
 
 =cut
 
@@ -133,12 +132,11 @@ file.  The return value is a C<Math::BigInt>.
 =item B<measure(i)>
 
 Return the length in bytes of a specific binary object within this
-Scavenger file.  The returned value is a C<Math::BigInt>.
+Scavenger file.
 
 C<i> is the index of the object to query for, where zero is the first
 object.  C<i> must be greater than or equal to zero and less than the
-value returned by C<count>.  C<i> may either be a scalar or a
-C<Math::BigInt>.
+value returned by C<count>.
 
 The return value will always be at least one.  A fatal error occurs if
 you query an object that has an invalid object index record, which
@@ -154,10 +152,9 @@ Read a whole object into memory as a binary string.
 
 C<i> is the index of the object to read, where zero is the first object.
 C<i> must be greater than or equal to zero and less than the value
-returned by C<count>.  C<i> may either be a scalar or a C<Math::BigInt>.
+returned by C<count>.
 
-The requested object must not exceed the size of 1 GiB or a fatal error
-will occur.
+Be careful about reading huge binary objects all into memory at once.
 
 =cut
 
@@ -170,10 +167,9 @@ UTF-8.
 
 C<i> is the index of the object to read, where zero is the first object.
 C<i> must be greater than or equal to zero and less than the value
-returned by C<count>.  C<i> may either be a scalar or a C<Math::BigInt>.
+returned by C<count>.
 
-The requested object must not exceed the size of 1 GiB or a fatal error
-will occur.
+Be careful about reading huge binary objects all into memory at once.
 
 The returned string will have one character per codepoint.  A fatal
 error occurs if there are any decoding problems.
@@ -198,9 +194,6 @@ C<measure> for this binary object.
 C<len> is the number of bytes to read from the binary object.  C<len>
 must be greater than zero and also be such that C<offs> added to C<len>
 does not exceed the value returned by C<measure> for this binary object.
-
-Each of the three parameters may either be a scalar or a
-C<Math::BigInt>.  Additionally, C<len> may not exceed 1 GiB.
 
 The return value will be a binary string where each character is in
 unsigned byte range 0-255.
@@ -228,9 +221,6 @@ C<measure> for this binary object.
 C<len> is the number of bytes to read from the binary object.  C<len>
 must be greater than zero and also be such that C<offs> added to C<len>
 does not exceed the value returned by C<measure> for this binary object.
-
-Each of the three parameters may either be a scalar or a
-C<Math::BigInt>.  Additionally, C<len> may not exceed 1 GiB.
 
 The return value will be a Unicode string where each character is a
 Unicode codepoint.  Fatal errors occur if there is any problem decoding
