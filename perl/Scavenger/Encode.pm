@@ -37,6 +37,11 @@ module is designed to allow for Scavenger files of up to the maximum
 length to be manipulated, including cases where there are huge numbers
 of binary objects.  Memory requirements are minimal.
 
+If you are creating a Scavenger file of length 2 GiB or more, your Perl
+must be compiled with large file support.  64-bit integer support is
+I<not> actually required, since Perl can use double-precision floating
+point to represent Scavenger's 48-bit integers.
+
 =cut
 
 # ===============
@@ -74,6 +79,46 @@ sub _hexToBinary {
   
   # Return result
   return $result;
+}
+
+# _splitInteger(i)
+# ----------------
+#
+# Split a 48-bit integer value into a 32-bit low part and a 16-bit high
+# part.  Returns (low, high) in list context.
+#
+sub _splitInteger {
+  # Get parameter
+  ($#_ == 0) or die "Wrong number of parameters, stopped";
+  my $i = shift;
+  
+  (not ref($i)) or die "Wrong parameter type, stopped";
+  $i = int($i);
+  
+  # Verify invoked in list context
+  wantarray or die "Must be invoked in list context, stopped";
+  
+  # Use a BigInt because bitwise operations force integer types
+  my $low  = Math::BigInt->new($i);
+  my $high = $low->copy;
+  
+  # Get a mask of 32 bits
+  my $mask = Math::BigInt->bone;
+  $mask->blsft(32);
+  $mask->bdec;
+  
+  # Low portion masks off the lowest 32 bits
+  $low->band($mask);
+  
+  # High portion shifts right 32 bits
+  $high->brsft(32);
+  
+  # Make sure high portion in unsigned 16-bit range
+  ($high->ble(0xffff)) or
+    die "Input to split integer is too large, stopped";
+  
+  # Now return both values as scalars
+  return ($low->numify, $high->numify);
 }
 
 =head1 CONSTRUCTOR
@@ -144,18 +189,16 @@ sub create {
   # index that we are building
   $self->{'_tf'} = File::Temp->new();
   
-  # _count is the total number of times beginObject has been called as
-  # a BigInt
-  $self->{'_count'} = Math::BigInt->bzero();
+  # _count is the total number of times beginObject has been called
+  $self->{'_count'} = 0;
   
   # _bytes is the total number of bytes that has been written to the
-  # output file, EXCLUDING bytes written to currently open object;
-  # number is a BigInt
-  $self->{'_bytes'} = Math::BigInt->bzero();
+  # output file, EXCLUDING bytes written to currently open object
+  $self->{'_bytes'} = 0;
   
   # _local is total number of bytes that has been written to the
-  # currently open object; number is a BigInt
-  $self->{'_local'} = Math::BigInt->bzero();
+  # currently open object
+  $self->{'_local'} = 0;
   
   # Convert signatures to binary if necessary
   $primary_sig = _hexToBinary($primary_sig);
@@ -174,7 +217,7 @@ sub create {
                   0, 0;
   print { $self->{'_fh'} } $header or die "I/O error, stopped";
   
-  $self->{'_bytes'}->badd(16);
+  $self->{'_bytes'} = 16;
   
   # Return the new object
   return $self;
@@ -249,44 +292,32 @@ sub _closeObject {
   ($self->{'_status'} == 0) or die "Wrong object state, stopped";
   
   # Only proceed if an object is open
-  unless ($self->{'_count'}->is_zero) {
+  if ($self->{'_count'} > 0) {
     # Make sure at least one byte written to previous object
-    (not $self->{'_local'}->is_zero) or 
-      die "Empty binary object, stopped";
+    ($self->{'_local'} > 0) or die "Empty binary object, stopped";
     
     # Create an index record for the previous object
-    my $index_offs_low  = $self->{'_bytes'}->copy;
-    my $index_offs_high = $self->{'_bytes'}->copy;
+    my ($index_offs_low, $index_offs_high) =
+                                    _splitInteger($self->{'_bytes'});
     
-    my $index_size_low  = $self->{'_local'}->copy;
-    my $index_size_high = $self->{'_local'}->copy;
-    
-    $index_offs_low->band(0xffffffff);
-    $index_size_low->band(0xffffffff);
-    
-    $index_offs_high->brsft(32);
-    $index_size_high->brsft(32);
-    
-    (($index_offs_high->ble(0xffff)) and
-      ($index_size_high->ble(0xffff))) or
-      die "Failed to split integer, stopped";
+    my ($index_size_low, $index_size_high) =
+                                    _splitInteger($self->{'_local'});
     
     my $index_rec = pack "L>L>S>S>",
-                      $index_offs_low->numify,
-                      $index_size_low->numify,
-                      $index_offs_high->numify,
-                      $index_size_high->numify;
+                      $index_offs_low,
+                      $index_size_low,
+                      $index_offs_high,
+                      $index_size_high;
     
     # Write the index record to the temporary file
     print { $self->{'_tf'} } $index_rec or die "I/O error, stopped";
     
     # Increase _bytes by _local and clear _local to zero
-    $self->{'_bytes'}->badd($self->{'_local'});
-    $self->{'_local'} = Math::BigInt->bzero;
+    $self->{'_bytes'} = $self->{'_bytes'} + $self->{'_local'};
+    $self->{'_local'} = 0;
     
     # Check that byte count hasn't exceeded limit
-    ($self->{'_bytes'}->ble(
-      Math::BigInt->new("0xffffffffffff"))) or
+    ($self->{'_bytes'} <= 0xffffffffffff) or
       die "Output file has grown too large, stopped";
   }
 }
@@ -335,17 +366,14 @@ sub beginObject {
     $self->_closeObject;
     
     # Increment the object count
-    $self->{'_count'}->binc;
+    $self->{'_count'} = $self->{'_count'} + 1;
     
     # Compute the total size of the file when it will be completed with
     # the index
-    my $total_size = $self->{'_count'}->copy;
-    $total_size->bmul(12);
-    $total_size->badd(6);
-    $total_size->badd($self->{'_bytes'});
+    my $total_size = ($self->{'_count'} * 12) + 6 + $self->{'_bytes'};
     
     # If total size exceeds the limit, error
-    ($total_size->ble(Math::BigInt->new('0xffffffffffff'))) or
+    ($total_size <= 0xffffffffffff) or
       die "File has grown too large, stopped";
   };
   if ($@) {
@@ -394,24 +422,11 @@ sub writeBinary {
   eval {
     # Check proper state
     ($self->{'_status'} == 0) or die "Wrong object state, stopped";
-    (not $self->{'_count'}->is_zero) or
+    ($self->{'_count'} > 0) or
       die "Can't write until object begun, stopped";
     
-    # Compute the total size of the file when it will be completed with
-    # the index
-    my $total_size = $self->{'_count'}->copy;
-    $total_size->bmul(12);
-    $total_size->badd(6);
-    $total_size->badd($self->{'_bytes'});
-    $total_size->badd($self->{'_local'});
-    $total_size->badd(length($bin));
-    
-    # If total size exceeds the limit, error
-    ($total_size->ble(Math::BigInt->new('0xffffffffffff'))) or
-      die "File has grown too large, stopped";
-    
-    # If we got here, size is OK, so increase _local
-    $self->{'_local'}->badd(length($bin));
+    # Increase _local
+    $self->{'_local'} = $self->{'_local'} + length($bin);
     
     # Now write the string to the output file
     print { $self->{'_fh'} } $bin or die "I/O error, stopped";
