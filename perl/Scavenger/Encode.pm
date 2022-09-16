@@ -44,6 +44,15 @@ point to represent Scavenger's 48-bit integers.
 
 =cut
 
+# =========
+# Constants
+# =========
+
+# The maximum number of bytes to transfer at a time when copying the
+# temporary index file into the output file during completion.
+#
+my $TRANSFER_SIZE = 16384;
+
 # ===============
 # Local functions
 # ===============
@@ -188,6 +197,7 @@ sub create {
   # _tf will be the File::Temp temporary file that stores the object
   # index that we are building
   $self->{'_tf'} = File::Temp->new();
+  binmode($self->{'_tf'}, ':raw') or die "I/O error, stopped";
   
   # _count is the total number of times beginObject has been called
   $self->{'_count'} = 0;
@@ -243,7 +253,7 @@ sub DESTROY {
   (ref($self) and $self->isa(__PACKAGE__)) or
     die "Wrong parameter type, stopped";
   
-  # Only proceed if both _status, _fpath, and _fh defined
+  # Only proceed if _status, _fpath, and _fh defined
   if ((defined $self->{'_status'}) and
       (defined $self->{'_fh'    }) and
       (defined $self->{'_fpath' })) {
@@ -497,7 +507,112 @@ Scavenger file is incomplete and delete it.
 =cut
 
 sub complete {
-  # @@TODO:
+  # Get self and parameters
+  ($#_ == 0) or die "Wrong parameter count, stopped";
+  
+  my $self = shift;
+  (ref($self) and $self->isa(__PACKAGE__)) or
+    die "Wrong parameter type, stopped";
+  
+  # Check for error state
+  ($self->{'_status'} >= 0) or die "Object in error state, stopped";
+  
+  # Wrap whole call in an eval that sets an error state and rethrows if
+  # error
+  eval {
+    # Check proper state
+    ($self->{'_status'} == 0) or die "Wrong object state, stopped";
+    
+    # Close any previous object
+    $self->_closeObject;
+    
+    # Compute how many bytes of padding are needed
+    my $padding = 4 - ($self->{'_bytes'} % 4);
+    if ($padding > 3) {
+      $padding = 0;
+    }
+    
+    # If at least one byte of padding needed, then write the padding to
+    # output and increase the byte count
+    if ($padding > 0) {
+      my $pad_str;
+      if ($padding == 1) {
+        $pad_str = ' ';
+      
+      } elsif ($padding == 2) {
+        $pad_str = '  ';
+        
+      } elsif ($padding == 3) {
+        $pad_str = '   ';
+        
+      } else {
+        die "Unexpected";
+      }
+      print { $self->{'_fh'} } $pad_str or die "I/O error, stopped";
+      $self->{'_bytes'} = $self->{'_bytes'} + $padding;
+    }
+    
+    # Compute the total size of the file and make sure it is within
+    # range
+    my $total_size = ($self->{'_count'} * 12) + 6 + $self->{'_bytes'};
+    ($total_size <= 0xffffffffffff) or
+      die "File has grown too large, stopped";
+    
+    # If at least one binary object, then we need to output the
+    # temporary file to build the index
+    if ($self->{'_count'} > 0) {
+      # Compute the total number of bytes to transfer from the temporary
+      # file
+      my $index_size = $self->{'_count'} * 12;
+      
+      # Rewind the temporary file
+      seek $self->{'_tf'}, 0, 0 or die "I/O error, stopped";
+      
+      # Keep going while we still have bytes to transfer
+      my $buf = '';
+      while ($index_size > 0) {
+        # The copy size is the minimum of the transfer size and the
+        # remaining bytes
+        my $copy_size = $index_size;
+        if ($TRANSFER_SIZE < $copy_size) {
+          $copy_size = $TRANSFER_SIZE;
+        }
+        
+        # Read from the temporary file
+        my $retval = read $self->{'_tf'}, $buf, $copy_size;
+        (defined $retval) or die "I/O error, stopped";
+        ($retval == $copy_size) or die "I/O error, stopped";
+        
+        # Write to output file
+        print { $self->{'_fh'} } $buf or die "I/O error, stopped";
+        
+        # Decrease index size by the copy size we just transferred
+        $index_size = $index_size - $copy_size;
+      }
+    }
+    
+    # Split the total object count and write it to the output file
+    my ($count_low, $count_high) = _splitInteger($self->{'_count'});
+    my $raw_count = pack "L>S>", $count_low, $count_high;
+    print { $self->{'_fh'} } $raw_count or die "I/O error, stopped";
+    
+    # Split the total file size and write it to the appropriate place in
+    # the output file header
+    my ($size_low, $size_high) = _splitInteger($total_size);
+    my $raw_size = pack "L>S>", $size_low, $size_high;
+    seek $self->{'_fh'}, 10, 0 or die "I/O error, stopped";
+    print { $self->{'_fh'} } $raw_size or die "I/O error, stopped";
+    
+    # If we got here, set status to completed successfully and close the
+    # output file handle
+    $self->{'_status'} = 1;
+    close($self->{'_fh'}) or warn "Failed to close file handle, warned";
+  };
+  if ($@) {
+    # Set error state and rethrow
+    $self->{'_status'} = -1;
+    die $@;
+  }
 }
 
 =back
