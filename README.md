@@ -28,7 +28,9 @@ All multibyte integers in Scavenger are always _big endian_, meaning that the mo
 
 Scavenger makes use of _split integers_, which are 48-bit unsigned integers that are split into a _low part_ and a _high part_.  The _low part_ is a 32-bit integer that stores the 32 least significant bits of the value.  The _high part_ is a 16-bit integer that stores the 16 most significant bits of the value.
 
-48-bit integers have the useful property that they can be safely handled in JavaScript, which supports integers up to 53 bits.  They also offer an enhanced range of up to 256 TiB, as opposed to the 4 GiB range of 32-bit integers which can easily be exceeded by modern multimedia.
+48-bit integers have the useful property that they can be exactly represented with IEEE double-precision floating-point numbers, which have an exact integer range of 53 bits.  This is important for JavaScript and Perl, which may not have 64-bit integers, but may instead use double-precision floating-point.
+
+48-bit integers also offer an enhanced range of up to 256 TiB.  By contrast, 32-bit integers have a maximum range of 4 GiB, which can easily be exceeded by modern multimedia.
 
 ### Header
 
