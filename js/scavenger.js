@@ -22,6 +22,12 @@
  * 
  *    await decoder.load(scavenger_blob);
  * 
+ * You can check whether the decoder is loaded as follows:
+ * 
+ *    if (decoder.isLoaded()) {
+ *      ...
+ *    }
+ * 
  * You can then access the primary and secondary signatures as base-16
  * strings, and compare given primary and secondary signatures to see if
  * they match:
@@ -72,6 +78,30 @@ function Scavenger() {
  */
 
 /*
+ * Check whether the given parameter is a finite integer.
+ * 
+ * Parameters:
+ * 
+ *   i - the value to check
+ * 
+ * Return:
+ * 
+ *   true if finite integer, false if not
+ */
+Scavenger._isInteger = function(i) {
+  if (typeof(i) !== "number") {
+    return false;
+  }
+  if (!isFinite(i)) {
+    return false;
+  }
+  if (Math.floor(i) !== i) {
+    return false;
+  }
+  return true;
+}
+
+/*
  * Promise-based wrapper for FileReader.
  * 
  * Parameters:
@@ -89,7 +119,7 @@ function Scavenger() {
  */
 Scavenger._readFile = function(fil, offs, sz) {
   // Check parameters
-  if ((!isInteger(offs)) || (!isInteger(sz))) {
+  if ((!Scavenger._isInteger(offs)) || (!Scavenger._isInteger(sz))) {
     throw new TypeError();
   }
   if ((offs < 0) || (sz < 1)) {
@@ -368,6 +398,21 @@ Scavenger.prototype.load = async function(src) {
 };
 
 /*
+ * Check whether the decoder has been successfully loaded.
+ * 
+ * This does NOT turn true immediately after calling load().  It only
+ * turns true once load() asynchronously finishes.
+ * 
+ * Return:
+ * 
+ *   true if loaded, false if not
+ */
+Scavenger.prototype.isLoaded = function() {
+  // Return result
+  return this._loaded;
+};
+
+/*
  * Return the primary signature as a lowercase base-16 string.
  * 
  * Only available if loaded.
@@ -517,13 +562,7 @@ Scavenger.prototype.fetch = async function(i, ctype) {
   }
   
   // Check parameters
-  if (typeof(i) !== "number") {
-    throw new TypeError();
-  }
-  if (!isFinite(i)) {
-    throw new TypeError();
-  }
-  if (Math.floor(i) !== i) {
+  if (!Scavenger._isInteger(i)) {
     throw new TypeError();
   }
   if ((i < 0) || (i >= this._count)) {
@@ -536,7 +575,7 @@ Scavenger.prototype.fetch = async function(i, ctype) {
   
   // Load the index record for the object and parse it
   let irec = await Scavenger._readFile(
-                          this._src,
+                          this._blob,
                           this._index + (i * 12),
                           12);
   irec = Scavenger._decodeIndex(irec);
@@ -555,7 +594,7 @@ Scavenger.prototype.fetch = async function(i, ctype) {
   }
   
   // Return the new blob
-  return this._src.slice(irec[0], irec[1], ctype);
+  return this._blob.slice(irec[0], irec[0] + irec[1], ctype);
 };
 
 /*
