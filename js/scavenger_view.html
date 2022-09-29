@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>Scavenger View</title>
+    <meta name="viewport" 
+      content="width=device-width, initial-scale=1.0"/>
+    <style>
+
+body {
+  max-width: 50em;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  margin-top: 2.5em;
+  margin-bottom: 5em;
+  font-family: sans-serif;
+  color: black;
+  background-color: whitesmoke;
+}
+
+:link {
+  text-decoration: none;
+  color: blue;
+}
+
+:visited {
+  text-decoration: none;
+  color: blue;
+}
+
+.call {
+  font-weight: bold;
+  color: white;
+  background-color: blue;
+  padding: 0.5em;
+}
+
+.ctlrow {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+.ctlright {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+  text-align: right;
+}
+
+h1 {
+  text-align: center;
+  border-bottom: thin solid;
+  padding-bottom: 0.5em;
+}
+
+#divLoadAnimation {
+  text-align: center;
+  color: gray;
+  font-size: 250%;
+  animation-duration: 2s;
+  animation-name: coloranim;
+  animation-iteration-count: infinite;
+}
+
+#spnLoadWiden {
+  animation-duration: 2s;
+  animation-name: wideanim;
+  animation-iteration-count: infinite;
+}
+
+@keyframes wideanim {
+  from {
+    letter-spacing: 0;
+  }
+  to {
+    letter-spacing: 1em;
+  }
+}
+
+@keyframes coloranim {
+  from {
+    color: black;
+  }
+  to {
+    color: gray;
+  }
+}
+
+#divNoScript {
+  text-align: center;
+  font-weight: bold;
+  font-family: serif;
+  font-size: larger;
+}
+
+#divMessageContent {
+  background-color: white;
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  padding-top: 1em;
+  padding-bottom: 1em;
+  border: medium solid silver;
+  font-family: monospace;
+  margin-left: 1em;
+  margin-right: 1em;
+}
+
+#tblInfo {
+  border-collapse: collapse;
+}
+
+#tblInfo th {
+  text-align: left;
+  font-weight: bold;
+  padding: 0.5em;
+  border: thin solid;
+}
+
+#tblInfo td {
+  text-align: left;
+  padding: 0.5em;
+  border: thin solid;
+  font-family: monospace;
+}
+
+    </style>
+    <script src="scavenger.js"></script>
+    <script src="scavenger_view.js"></script>
+  </head>
+  <body>
+    <h1>Scavenger View</h1>
+    
+    <div id="divLoading">
+      <p id="divLoadAnimation">
+        <span id="spnLoadWiden">&bull;&bull;</span>&bull;
+      </p>
+      <noscript>
+        <p id="divNoScript"><b>ERROR: JavaScript is required!</b></p>
+      </noscript>
+    </div>
+    
+    <div id="divLoadError" style="display: none;">
+      <p>An error occurred:</p>
+      <p id="divMessageContent">
+        &nbsp;
+      </p>
+      <div class="ctlrow">
+        <a href="javascript:void(scview.handleReload());" class="call">
+          Back to load screen
+        </a>
+      </div>
+    </div>
+    
+    <div id="divLoadDialog" style="display: none;">
+      <p>Choose a Scavenger file to load:</p>
+      <input type="file" id="filUpload"/>
+      <p>Then load the file here:</p>
+      <div class="ctlrow">
+        <a href="javascript:void(scview.handleUpload());" class="call">
+          Load file
+        </a>
+      </div>
+    </div>
+    
+    <div id="divMainError" style="display: none;">
+      <p>An error occurred:</p>
+      <p id="divMainErrorText">
+        &nbsp;
+      </p>
+      <div class="ctlrow">
+        <a href="javascript:void(scview.returnMain());" class="call">
+          Back to main screen
+        </a>
+      </div>
+    </div>
+    
+    <div id="divMain" style="display: none;">
+      <p class="ctlright">
+        <a href="javascript:void(scview.handleReload());" class="call">
+          Close Scavenger file
+        </a>
+      </p>
+      
+      <h2>File info</h2>
+      
+      <table id="tblInfo">
+        <tr>
+          <th>Number of objects:</th>
+          <td id="tdCount">&nbsp;</td>
+        </tr>
+        <tr>
+          <th>Primary signature:</th>
+          <td id="tdPrimary">&nbsp;</td>
+        </tr>
+        <tr>
+          <th>Secondary signature:</th>
+          <td id="tdSecondary">&nbsp;</td>
+        </tr>
+        <tr>
+          <th>Secondary ASCII:</th>
+          <td id="tdSecASCII">&nbsp;</td>
+        </tr>
+      </table>
+      
+      <h2>Extract object</h2>
+      
+      <p>
+        Enter an object ID:<br/>
+        <input type="text" id="txtObjectID"/>
+      </p>
+      
+      <p>
+        Enter a MIME type to extract as:<br/>
+        <input type="text" id="txtMIMEType"/>
+      </p>
+      
+      <div class="ctlrow">
+        <a href="javascript:void(scview.generateLink());" class="call">
+          Generate object link
+        </a>
+      </div>
+      
+      <div id="divGenLink" class="ctlrow">&nbsp;</div>
+    </div>
+  </body>
+</html>
