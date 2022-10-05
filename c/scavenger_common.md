@@ -8,13 +8,15 @@ For the specifics of how to encode and decode Scavenger files with this library,
 
 Both the encoder and decoder modules work by constructing instances of special structures using constructor functions.  These object instances should eventually be freed by using the appropriate destructor function, or otherwise resource leaks occur.  However, all resources consumed by object instances will be automatically freed at the end of the program.  The specific names of each of these concepts for the encoder module and decoder module are given here:
 
-       Feature   |       Encoder name       |       Decoder name
-    =============+==========================+==========================
-     Structure   | SCAVENGER_ENCODER        | SCAVENGER_DECODER
-     Constructor | scavenger_encoder_new()  | scavenger_decoder_new()
-     Destructor  | scavenger_encoder_free() | scavenger_decoder_free()
+       Feature   |  Encoder name  |  Decoder name
+    =============+================+================
+     Structure   | SGR_ENC        | SGR_DEC
+     Constructor | sgr_enc_new()  | sgr_dec_new()
+     Destructor  | sgr_enc_free() | sgr_dec_free()
 
 Multithreaded use of Scavenger encoders and decoders is acceptable, so long as no individual structure instance is used simultaneously by more than one thread.  It is up to the client to ensure this synchronization happens.
+
+Undefined behavior will occur if the Scavenger file is modified by another process while an encoder or decoder instance is open on it.
 
 ## Error handling
 
@@ -28,9 +30,8 @@ Certain failures do not qualify as full errors.  For example, if the destructor 
 
 The specific names of the error, error message, and warning functions for the encoder and decoder module are given here:
 
-       Function    |        Encoder name        |        Decoder name
-    ===============+============================+============================
-     Error         | scavenger_encoder_error()  | scavenger_decoder_error()
-     Error message | scavenger_encoder_errmsg() | scavenger_decoder_errmsg()
-     Warning       | scavenger_encoder_warn()   | scavenger_decoder_warn()
-
+       Function    |   Encoder name   |   Decoder name
+    ===============+==================+==================
+     Error         | sgr_enc_error()  | sgr_dec_error()
+     Error message | sgr_enc_errmsg() | sgr_dec_errmsg()
+     Warning       | sgr_enc_warn()   | sgr_dec_warn()
